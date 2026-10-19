@@ -250,9 +250,11 @@ The token is missing, invalid, expired, or already blacklisted:
 
 ## Captain routes
 
+Captain routes are mounted at `/captains`. The examples below use JSONC so comments can describe requirements and constraints; remove comments before sending a request.
+
 ### Register a captain
 
-Creates a captain account with vehicle details and returns an authentication token.
+Creates a captain account and returns an authentication token.
 
 #### Endpoint
 
@@ -261,36 +263,21 @@ POST /captains/register
 Content-Type: application/json
 ```
 
-The app mounts captain routes at `/captains`.
-
 #### Request body
 
-| Field | Required | Constraints |
-| --- | --- | --- |
-| `fullname.firstname` | Yes | At least 3 characters |
-| `fullname.lastname` | No | If provided, at least 3 characters |
-| `email` | Yes | Must be a valid, unique email address |
-| `password` | Yes | At least 6 characters |
-| `vehicle.color` | Yes | At least 3 characters |
-| `vehicle.plate` | Yes | At least 3 characters |
-| `vehicle.capacity` | Yes | Positive integer |
-| `vehicle.vehicleType` | Yes | `car`, `motorcycle`, or `auto` |
-
-Example:
-
-```json
+```jsonc
 {
   "fullname": {
-    "firstname": "Jordan",
-    "lastname": "Lee"
+    "firstname": "Jordan", // Required; at least 3 characters
+    "lastname": "Lee" // Optional; if provided, at least 3 characters
   },
-  "email": "jordan.lee@example.com",
-  "password": "strong-password",
+  "email": "jordan.lee@example.com", // Required; valid and unique email
+  "password": "strong-password", // Required; at least 6 characters
   "vehicle": {
-    "color": "blue",
-    "plate": "ABC123",
-    "capacity": 4,
-    "vehicleType": "car"
+    "color": "blue", // Required; at least 3 characters
+    "plate": "ABC123", // Required; at least 3 characters
+    "capacity": 4, // Required; integer of at least 1
+    "vehicleType": "car" // Required; "car", "motorcycle", or "auto"
   }
 }
 ```
@@ -299,11 +286,9 @@ Example:
 
 ##### `201 Created`
 
-On successful registration, the endpoint returns a JWT and the created captain:
-
-```json
+```jsonc
 {
-  "token": "<jwt-token>",
+  "token": "<jwt-token>", // Expires after 24 hours
   "captain": {
     "_id": "<captain-id>",
     "fullname": {
@@ -311,37 +296,23 @@ On successful registration, the endpoint returns a JWT and the created captain:
       "lastname": "Lee"
     },
     "email": "jordan.lee@example.com",
-    "password": "<bcrypt-hash>",
+    "password": "<bcrypt-hash>", // Current controller may expose this hash
     "status": "inactive",
     "vehicle": {
       "color": "blue",
       "plate": "ABC123",
       "capacity": 4,
-      "vehicleType": "car",
-      "latitude": 40.7128,
-      "longitude": -74.006
+      "vehicleType": "car"
     }
   }
 }
 ```
 
-The token expires after 24 hours. The current controller returns the created captain document, which can include the hashed password. The hash is sensitive and should be removed from the response.
+The password hash is sensitive and should not be returned to clients.
 
-##### `400 Bad Request` — captain already exists
+##### `400 Bad Request` — validation error
 
-The email is already registered:
-
-```json
-{
-  "message": "Captain already exist"
-}
-```
-
-##### `400 Bad Request` — invalid request
-
-Validation failures return an `errors` array. For example, an invalid email returns:
-
-```json
+```jsonc
 {
   "errors": [
     {
@@ -355,6 +326,172 @@ Validation failures return an `errors` array. For example, an invalid email retu
 }
 ```
 
-##### `500 Internal Server Error` — model validation failure
+##### `400 Bad Request` — captain already exists
 
-The current route/controller does not pass `vehicle.latitude` or `vehicle.longitude` to the captain model, even though both are required by the schema. Consequently, captain creation can fail with a server error. The exact error response depends on the Express error handler; no application-specific JSON response is defined for this case.
+```jsonc
+{
+  "message": "Captain already exist"
+}
+```
+
+##### Registration implementation issue
+
+The captain model also requires `vehicle.latitude` and `vehicle.longitude`, but the registration controller does not pass these properties to the model. Consequently, creating a captain can fail model validation. The exact error response depends on Express error handling.
+
+### Log in a captain
+
+Authenticates a captain with their email and password.
+
+#### Endpoint
+
+```http
+POST /captains/login
+Content-Type: application/json
+```
+
+#### Request body
+
+```jsonc
+{
+  "email": "jordan.lee@example.com", // Required; valid email
+  "password": "strong-password" // Required; at least 6 characters
+}
+```
+
+#### Responses
+
+##### `200 OK`
+
+```jsonc
+{
+  "token": "<jwt-token>", // Expires after 24 hours
+  "captain": {
+    "_id": "<captain-id>",
+    "fullname": {
+      "firstname": "Jordan",
+      "lastname": "Lee"
+    },
+    "email": "jordan.lee@example.com",
+    "password": "<bcrypt-hash>", // Current controller selects and may expose the hash
+    "status": "inactive",
+    "vehicle": {
+      "color": "blue",
+      "plate": "ABC123",
+      "capacity": 4,
+      "vehicleType": "car"
+    }
+  }
+}
+```
+
+The controller also sets the JWT in a `token` cookie.
+
+##### `400 Bad Request` — validation error
+
+```jsonc
+{
+  "errors": [
+    {
+      "type": "field",
+      "value": "not-an-email",
+      "msg": "Invalid Email",
+      "path": "email",
+      "location": "body"
+    }
+  ]
+}
+```
+
+##### `401 Unauthorized` — invalid credentials
+
+The same response is returned when the email is not found or the password does not match:
+
+```jsonc
+{
+  "message": "Invalid email or password"
+}
+```
+
+### Get the captain profile
+
+Returns the authenticated captain's profile.
+
+#### Endpoint
+
+```http
+GET /captains/profile
+Authorization: Bearer <jwt-token>
+```
+
+No request body is required. The JWT may also be sent in the `token` cookie.
+
+#### Responses
+
+##### `200 OK`
+
+```jsonc
+{
+  "captain": {
+    "_id": "<captain-id>",
+    "fullname": {
+      "firstname": "Jordan",
+      "lastname": "Lee"
+    },
+    "email": "jordan.lee@example.com",
+    "status": "inactive",
+    "vehicle": {
+      "color": "blue",
+      "plate": "ABC123",
+      "capacity": 4,
+      "vehicleType": "car"
+    }
+  }
+}
+```
+
+##### `401 Unauthorized`
+
+```jsonc
+{
+  "message": "Unauthorized" // Missing, invalid, expired, or blacklisted token
+}
+```
+
+### Log out a captain
+
+The current router declares logout as `GET /captains/logout`. It requires authentication and is intended to blacklist the current token and clear the `token` cookie.
+
+#### Endpoint
+
+```http
+GET /captains/logout
+Authorization: Bearer <jwt-token>
+```
+
+No request body is required. The JWT may also be sent in the `token` cookie.
+
+#### Intended response
+
+##### `200 OK`
+
+```jsonc
+{
+  "message": "Logout successfully"
+}
+```
+
+##### `401 Unauthorized`
+
+```jsonc
+{
+  "message": "Unauthorized" // Missing, invalid, expired, or blacklisted token
+}
+```
+
+#### Captain route implementation issues
+
+- `captain.routes.js` references `authMidddleware` for the logout route; the imported variable is `authMiddleware`. This typo prevents the captain router from loading.
+- `authCaptain` does not call `next()` after successfully authenticating, so authenticated profile and logout requests do not reach their controllers.
+- The captain logout controller uses `blackListTokenModel` without importing it.
+
+Until these issues are fixed, the profile and logout examples describe the intended responses, not working endpoint behavior.
