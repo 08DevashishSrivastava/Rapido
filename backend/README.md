@@ -83,4 +83,4 @@ The request failed validation. The response contains an `errors` array describin
 
 ### Implementation status
 
-The checked-in `routes/user.routes.js` is currently empty, so this endpoint is documented as the intended registration contract but is not currently exposed by the backend.
+The registration route is implemented in `routes/user.routes.js` and is exposed at `/users/register`.
