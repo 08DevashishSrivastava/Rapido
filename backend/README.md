@@ -247,3 +247,114 @@ The token is missing, invalid, expired, or already blacklisted:
   "message": "Unauthorized"
 }
 ```
+
+## Captain routes
+
+### Register a captain
+
+Creates a captain account with vehicle details and returns an authentication token.
+
+#### Endpoint
+
+```http
+POST /captains/register
+Content-Type: application/json
+```
+
+The app mounts captain routes at `/captains`.
+
+#### Request body
+
+| Field | Required | Constraints |
+| --- | --- | --- |
+| `fullname.firstname` | Yes | At least 3 characters |
+| `fullname.lastname` | No | If provided, at least 3 characters |
+| `email` | Yes | Must be a valid, unique email address |
+| `password` | Yes | At least 6 characters |
+| `vehicle.color` | Yes | At least 3 characters |
+| `vehicle.plate` | Yes | At least 3 characters |
+| `vehicle.capacity` | Yes | Positive integer |
+| `vehicle.vehicleType` | Yes | `car`, `motorcycle`, or `auto` |
+
+Example:
+
+```json
+{
+  "fullname": {
+    "firstname": "Jordan",
+    "lastname": "Lee"
+  },
+  "email": "jordan.lee@example.com",
+  "password": "strong-password",
+  "vehicle": {
+    "color": "blue",
+    "plate": "ABC123",
+    "capacity": 4,
+    "vehicleType": "car"
+  }
+}
+```
+
+#### Responses
+
+##### `201 Created`
+
+On successful registration, the endpoint returns a JWT and the created captain:
+
+```json
+{
+  "token": "<jwt-token>",
+  "captain": {
+    "_id": "<captain-id>",
+    "fullname": {
+      "firstname": "Jordan",
+      "lastname": "Lee"
+    },
+    "email": "jordan.lee@example.com",
+    "password": "<bcrypt-hash>",
+    "status": "inactive",
+    "vehicle": {
+      "color": "blue",
+      "plate": "ABC123",
+      "capacity": 4,
+      "vehicleType": "car",
+      "latitude": 40.7128,
+      "longitude": -74.006
+    }
+  }
+}
+```
+
+The token expires after 24 hours. The current controller returns the created captain document, which can include the hashed password. The hash is sensitive and should be removed from the response.
+
+##### `400 Bad Request` — captain already exists
+
+The email is already registered:
+
+```json
+{
+  "message": "Captain already exist"
+}
+```
+
+##### `400 Bad Request` — invalid request
+
+Validation failures return an `errors` array. For example, an invalid email returns:
+
+```json
+{
+  "errors": [
+    {
+      "type": "field",
+      "value": "not-an-email",
+      "msg": "Invalid Email",
+      "path": "email",
+      "location": "body"
+    }
+  ]
+}
+```
+
+##### `500 Internal Server Error` — model validation failure
+
+The current route/controller does not pass `vehicle.latitude` or `vehicle.longitude` to the captain model, even though both are required by the schema. Consequently, captain creation can fail with a server error. The exact error response depends on the Express error handler; no application-specific JSON response is defined for this case.
