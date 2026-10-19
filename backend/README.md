@@ -165,3 +165,85 @@ The email is not registered or the password does not match:
 ```
 
 The same message is used for either case so the response does not reveal whether an email is registered.
+
+## Get the authenticated user's profile
+
+Returns the profile belonging to the authenticated user.
+
+### Endpoint
+
+```http
+GET /users/profile
+Authorization: Bearer <jwt-token>
+```
+
+The token can also be sent in a `token` cookie. The endpoint requires a valid, unexpired token that has not been blacklisted.
+
+### Request
+
+No request body is required.
+
+### Responses
+
+#### `200 OK`
+
+The authenticated user's profile is returned. The password is excluded:
+
+```json
+{
+  "_id": "67123456789abcdef0123456",
+  "fullname": {
+    "firstname": "Alex",
+    "lastname": "Morgan"
+  },
+  "email": "alex.morgan@example.com",
+  "__v": 0
+}
+```
+
+#### `401 Unauthorized`
+
+The token is missing, invalid, expired, or blacklisted:
+
+```json
+{
+  "message": "Unauthorized"
+}
+```
+
+## Log out a user
+
+Invalidates the current JWT by adding it to the token blacklist and clears the `token` cookie.
+
+### Endpoint
+
+```http
+POST /users/logout
+Authorization: Bearer <jwt-token>
+```
+
+The token can also be sent in a `token` cookie. The endpoint requires a valid, unexpired token that has not already been blacklisted. No request body is required.
+
+### Responses
+
+#### `200 OK`
+
+Logout succeeded:
+
+```json
+{
+  "message": "Logged out"
+}
+```
+
+The blacklist record expires automatically after 24 hours.
+
+#### `401 Unauthorized`
+
+The token is missing, invalid, expired, or already blacklisted:
+
+```json
+{
+  "message": "Unauthorized"
+}
+```
