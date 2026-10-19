@@ -55,13 +55,12 @@ Registration succeeded. The response contains the authentication token and the c
       "lastname": "Morgan"
     },
     "email": "alex.morgan@example.com",
-    "password": "<bcrypt-hash>",
     "__v": 0
   }
 }
 ```
 
-This example reflects the current controller response: it returns the created user document, which includes the hashed password because the controller does not remove it. The password is hashed, not plaintext, but the hash is sensitive and should not be sent to clients. Remove `password` from the user object before returning it from the controller.
+The response does not include the password.
 
 #### `400 Bad Request`
 
@@ -84,3 +83,85 @@ The request failed validation. The response contains an `errors` array describin
 ### Implementation status
 
 The registration route is implemented in `routes/user.routes.js` and is exposed at `/users/register`.
+
+## Log in a user
+
+Authenticates an existing user using their email and password. On success, returns an authentication token and the user's profile.
+
+### Endpoint
+
+```http
+POST /users/login
+Content-Type: application/json
+```
+
+The app mounts the user router at `/users`; the login route is `/login` within that router. Therefore, the effective path is `/users/login` (not `/user/login`).
+
+### Request body
+
+Both fields are required:
+
+| Field | Required | Constraints |
+| --- | --- | --- |
+| `email` | Yes | Must be a valid email address |
+| `password` | Yes | At least 6 characters |
+
+Example:
+
+```json
+{
+  "email": "alex.morgan@example.com",
+  "password": "strong-password"
+}
+```
+
+### Responses
+
+#### `200 OK`
+
+The credentials are valid. The response contains a JWT and the user's profile; the password is not returned:
+
+```json
+{
+  "token": "<jwt-token>",
+  "user": {
+    "_id": "67123456789abcdef0123456",
+    "fullname": {
+      "firstname": "Alex",
+      "lastname": "Morgan"
+    },
+    "email": "alex.morgan@example.com",
+    "__v": 0
+  }
+}
+```
+
+#### `400 Bad Request`
+
+The email or password is missing or does not satisfy validation. For example, an invalid email returns:
+
+```json
+{
+  "errors": [
+    {
+      "type": "field",
+      "value": "not-an-email",
+      "msg": "Invalid Email",
+      "path": "email",
+      "location": "body"
+    }
+  ]
+}
+```
+
+#### `401 Unauthorized`
+
+The email is not registered or the password does not match:
+
+```json
+{
+  "message": "Invalid email or password"
+}
+```
+
+The same message is used for either case so the response does not reveal whether an email is registered.
