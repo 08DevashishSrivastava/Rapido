@@ -19,6 +19,7 @@ email: {
     required: true,
     unique: true,
     lowercase: true,
+    trim: true,
     match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email']
 },
 password: {
@@ -58,20 +59,37 @@ vehicleType: {
 },
 latitude: {
     type: Number,
-    required: true,
     min: [-90, 'Latitude must be at least -90'],
     max: [90, 'Latitude cannot exceed 90']
 },
 
 longitude: {
     type: Number,
-    required: true,
     min: [-180, 'Longitude must be at least -180'],
     max: [180, 'Longitude cannot exceed 180']
+},
+location: {
+    type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point'
+    },
+    coordinates: {
+        type: [Number],
+        default: undefined,
+        validate: {
+            validator: value => value === undefined || value.length === 2,
+            message: 'Location must contain longitude and latitude'
+        }
+    }
+},
+locationUpdatedAt: {
+    type: Date
 },
 }
 })
 
+captainSchema.index({ location: '2dsphere' });
 
 captainSchema.methods.generateAuthToken = function () {
     const token = jwt.sign(

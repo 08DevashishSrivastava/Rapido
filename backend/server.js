@@ -58,10 +58,20 @@ const port = process.env.PORT || 4000;
 
 async function startServer() {
     try {
+        if (!process.env.JWT_SECRET) {
+            throw new Error('JWT_SECRET is not set. Add it to backend/.env.');
+        }
+
         await connectToDb();
 
-        http.createServer(app).listen(port, () => {
+        const server = http.createServer(app);
+        server.listen(port, () => {
             console.log(`Server is running on port ${port}`);
+        });
+
+        server.on('error', error => {
+            console.error('HTTP server failed:', error.message);
+            process.exit(1);
         });
     } catch (error) {
         console.error('Server startup failed:', error.message);

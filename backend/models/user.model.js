@@ -19,6 +19,8 @@ email: {
     type: String,
     required: true,
     unique: true,
+    lowercase: true,
+    trim: true,
     minlength: [ 5, 'Email must be at least 5 characters long' ],
 },
 password: {
